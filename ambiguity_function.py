@@ -23,14 +23,15 @@ def ambiguity_function(waveform,M,circular_ambiguity=True): #not working (no wor
 	N = np.size(waveform)
 	S_0 = waveform.astype(complex) #ensure waveform is complex
 	S_0 = S_0.reshape(N,)
+	
 	ambiguity = np.zeros((N,2*M+1),dtype=np.complex_)
+	
+	#create conjugate sequence
+	S_conj = np.conj(S_0)
 	
 	#Generate roots of unity to form a complex sinusoid.
 	exponent = np.linspace(0,2*math.pi,N) #N points 0-2*pi (sequence is N long, so N shifts), divided by M to normalize the frequency axis
 	W_N = np.exp(1j*exponent)
-	
-	#create conjugate sequence
-	S_conj = np.conj(S_0)
 	
 	#Generate shifted versions of the sequence, different complex sinusoids then do the multiplication and sum.
 	for K in range(0,N):#Time shift
@@ -47,7 +48,7 @@ def ambiguity_function(waveform,M,circular_ambiguity=True): #not working (no wor
 				ambiguity[K,M+L] = np.vdot(np.power(W_N,L),Rxx_k)				#positive frequency shift
 	return ambiguity
 
-def ambiguity_function2(waveform,circular_ambiguity=True):
+def ambiguity_function2(waveform,circular_ambiguity=True,normalize=True):
 	N = np.size(waveform)
 	if(N%2==1):
 		S_0 = np.append(waveform,waveform[N-1]).astype(complex)
@@ -79,6 +80,9 @@ def ambiguity_function2(waveform,circular_ambiguity=True):
 	ambiguity1[math.ceil(N/2):N,:] = ambiguity[0:math.floor(N/2),:];
 	
 	ambiguity = np.swapaxes(ambiguity1,0,1)#flip axis
+	
+	if(normalize):
+		ambiguity = ambiguity/np.amax(ambiguity)
 	
 	return ambiguity
 	
