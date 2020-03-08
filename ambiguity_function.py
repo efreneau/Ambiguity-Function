@@ -49,8 +49,14 @@ def ambiguity_function(waveform,M,circular_ambiguity=True): #not working (no wor
 
 def ambiguity_function2(waveform,circular_ambiguity=True):
 	N = np.size(waveform)
-	S_0 = waveform.astype(complex) #ensure waveform is complex
+	if(N%2==1):
+		S_0 = np.append(waveform,waveform[N-1]).astype(complex)
+		N = N+1
+	else:
+		S_0 = waveform.astype(complex) #ensure waveform is complex
+	
 	S_0 = S_0.reshape(N,)
+	
 	ambiguity = np.zeros((N,N),dtype=np.complex_)
 	
 	#create conjugate sequence
