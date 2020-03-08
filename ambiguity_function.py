@@ -14,34 +14,36 @@
 #Returns a complex (N,2*M+1) array
 
 import warnings
+import math
 import numpy as np
 from collections import deque
 
-def ambiguity_function(waveform,M,circular_ambiguity=true,):
-	#detect symmetry?
-	N = size(waveform)
+def ambiguity_function(waveform,M,circular_ambiguity=True):
+	N = np.size(waveform)
 	S_0 = waveform.astype(complex) #ensure waveform is complex
+	S_0 = S_0.reshape(N,)
 	ambiguity = np.zeros((N,2*M+1),dtype=np.complex_)
 	
 	#Generate roots of unity to form a complex sinusoid.
-	exponent = linspace(0,2*pi/M,N,dtype=np.complex32) #N points 0-2*pi (sequence is N long, so N shifts), divided by M to normalize the frequency axis
-	W_N = np.exp(exponent)
+	exponent = np.linspace(0,2*math.pi,N) #N points 0-2*pi (sequence is N long, so N shifts), divided by M to normalize the frequency axis
+	W_N = np.exp(1j*exponent)
 	
 	#create conjugate sequence
 	S_conj = np.conj(S_0)
 	
 	#Generate shifted versions of the sequence, different complex sinusoids then do the multiplication and sum.
-	for K in range(0,N):
+	for K in range(0,N):#Time shift
 		if circular_ambiguity:
-			S_shift = np.roll(S_conj,K)
+			Rxx_k = np.multiply(S_0,np.roll(S_conj,K)); #shift and element-wise multiply
 		else:
-			S_shift = right_shift(S_conj,K)	
-		for L in range(0,M):
+			Rxx_k = np.multiply(S_0,right_shift(S_conj,K));	
+			
+		for L in range(0,M):#Frequency shift
 			if(L == 0):
-				ambiguity_function(K,M) = np.dot(S_0,S_shift)													#No frequency shift, L=0 slice is the autocorrelation of S_0
+				ambiguity[K,M] = np.sum(Rxx_k)									#No frequency shift, L=0 slice is the autocorrelation of S_0
 			else:
-				ambiguity_function(K,M-L) = np.dot(np.multiply(W_N**-L,S_shift),S_0)							#negative frequency shift
-				ambiguity_function(K,M+L) = np.dot(np.multiply(W_N**L,S_shift),S_0)								#positive frequency shift
+				ambiguity[K,M-L] = np.vdot(np.power(W_N,-L),Rxx_k)				#negative frequency shift
+				ambiguity[K,M+L] = np.vdot(np.power(W_N,L),Rxx_k)				#positive frequency shift
 	
 	return ambiguity
 
