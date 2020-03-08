@@ -1,4 +1,5 @@
 #Computes a complex ambiguity function for a pulse. Returns a 2D array where the first axis time and the second is frequency.
+#ambiguity_function2 makes use of ifft instead of 
 #
 #	waveform : array_like
 #		The sequence of interest. A 1D array.
@@ -18,7 +19,7 @@ import math
 import numpy as np
 from collections import deque
 
-def ambiguity_function(waveform,M,circular_ambiguity=True):
+def ambiguity_function(waveform,M,circular_ambiguity=True): #not working (no workaround)
 	N = np.size(waveform)
 	S_0 = waveform.astype(complex) #ensure waveform is complex
 	S_0 = S_0.reshape(N,)
@@ -44,9 +45,37 @@ def ambiguity_function(waveform,M,circular_ambiguity=True):
 			else:
 				ambiguity[K,M-L] = np.vdot(np.power(W_N,-L),Rxx_k)				#negative frequency shift
 				ambiguity[K,M+L] = np.vdot(np.power(W_N,L),Rxx_k)				#positive frequency shift
-	
 	return ambiguity
 
+def ambiguity_function2(waveform,circular_ambiguity=True):
+	N = np.size(waveform)
+	S_0 = waveform.astype(complex) #ensure waveform is complex
+	S_0 = S_0.reshape(N,)
+	ambiguity = np.zeros((N,N),dtype=np.complex_)
+	
+	#create conjugate sequence
+	S_conj = np.conj(S_0)
+	
+	#Generate shifted versions of the sequence, different complex sinusoids then do the multiplication and sum.
+	for K in range(0,N):#Time shift
+		if circular_ambiguity:
+			Rxx_k = np.multiply(S_0,np.roll(S_conj,K)); #shift and element-wise multiply
+		else:
+			Rxx_k = np.multiply(S_0,right_shift(S_conj,K));	
+			
+		#for L in range(0,N):#Frequency shift
+		ambiguity[K,:] = np.fft.fftshift(np.fft.ifft(Rxx_k))
+	
+	#ambiguity shift workaround
+	ambiguity1 = np.zeros((N,N),dtype=np.complex_);
+	
+	ambiguity1[0:math.floor(N/2),:] = ambiguity[math.ceil(N/2):N,:];
+	ambiguity1[math.ceil(N/2):N,:] = ambiguity[0:math.floor(N/2),:];
+	
+	ambiguity = np.swapaxes(ambiguity1,0,1)#flip axis
+	
+	return ambiguity
+	
 #Shift with no roll
 def right_shift(sequence,shift):
 	s = np.roll(sequence,shift)	#roll
