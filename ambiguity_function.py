@@ -46,13 +46,30 @@ def ambiguity_function(waveform,M,circular_ambiguity=True): #not working (no wor
 			else:
 				ambiguity[K,M-L] = np.vdot(np.power(W_N,-L),Rxx_k)				#negative frequency shift
 				ambiguity[K,M+L] = np.vdot(np.power(W_N,L),Rxx_k)				#positive frequency shift
+				
+				
+	#ambiguity shift
+	ambiguity1 = np.zeros((N,N),dtype=np.complex_);
+	
+	ambiguity1[0:math.floor(N/2),:] = ambiguity[math.ceil(N/2):N,:];
+	ambiguity1[math.ceil(N/2):N,:] = ambiguity[0:math.floor(N/2),:];
+	
+	ambiguity = np.swapaxes(ambiguity1,0,1)#flip axis
+	
+	if(normalize):
+		ambiguity = ambiguity/np.amax(ambiguity)
+	
 	return ambiguity
 
 def ambiguity_function2(waveform,circular_ambiguity=True,normalize=True):
 	N = np.size(waveform)
+	odd = False
+	
+	#If N is odd pad to make a more composite number
 	if(N%2==1):
-		S_0 = np.append(waveform,waveform[N-1]).astype(complex)
+		S_0 = np.append(waveform,0).astype(complex)
 		N = N+1
+		odd = True
 	else:
 		S_0 = waveform.astype(complex) #ensure waveform is complex
 	
@@ -84,7 +101,11 @@ def ambiguity_function2(waveform,circular_ambiguity=True,normalize=True):
 	if(normalize):
 		ambiguity = ambiguity/np.amax(ambiguity)
 	
-	return ambiguity
+	#Correct for padding
+	if odd:
+		return ambiguity[1:,1:]
+	else:
+		return ambiguity
 	
 #Shift with no roll
 def right_shift(sequence,shift):
