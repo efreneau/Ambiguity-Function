@@ -1,12 +1,17 @@
-#Computes a complex ambiguity function for a pulse. Returns a 2D array where the first axis time and the second is frequency.
-#ambiguity_function2 makes use of ifft instead of 
+#Computes a complex ambiguity function for a pulse. Returns a 2D array where the first axis is time delay and the second is doppler frequency.
 #
 #	waveform : array_like
 #		The sequence of interest. A 1D array.
 #
+#	N : int
+#		Controls the resolution of the time delay axis.
+#		There are N increments in the delay axis.
+#
 #	M : int
-#		Controls the spectral resolution of the plot.
-#		Negative frequency shifts and unshifted are also computed. 2*M+1 in total.
+#		Controls the spectral resolution of the doppler axis.
+#
+#	fs: double
+#		Sample rate of the input signal.
 #
 #	circular_ambiguity : bool, optional
 #		true(default): pulse treated as being transmitted back to back with another copy of the same pulse.
@@ -19,47 +24,61 @@ import math
 import numpy as np
 from collections import deque
 
-def ambiguity_function(waveform,M,circular_ambiguity=True): #not working (no workaround)
-	N = np.size(waveform)
+def ambiguity_function(waveform,N,M,fs,circular_ambiguity=True,normalize=True): #not working
+	"""
+	if(N%2==0):
+		N = N+1
+		S_0 = np.append(waveform,0).astype(complex)
+		S_0 = S_0.reshape(N,)
+	"""
+	fs = np.floor(fs)
 	S_0 = waveform.astype(complex) #ensure waveform is complex
-	S_0 = S_0.reshape(N,)
+	sample_num = np.size(waveform)
 	
-	ambiguity = np.zeros((N,2*M+1),dtype=np.complex_)
+	"""
+	if(N>sample_num):
+		N = sample_num
+	if(N%2==1):
+		N = N+1
+	"""
+		
+	ambiguity = np.zeros((N,M),dtype=np.complex_)
 	
 	#create conjugate sequence
 	S_conj = np.conj(S_0)
 	
-	#Generate roots of unity to form a complex sinusoid.
-	exponent = np.linspace(0,2*math.pi,N) #N points 0-2*pi (sequence is N long, so N shifts), divided by M to normalize the frequency axis
-	W_N = np.exp(1j*exponent)
+	t = np.linspace(0,sample_num/fs,sample_num)
 	
-	#Generate shifted versions of the sequence, different complex sinusoids then do the multiplication and sum.
-	for K in range(0,N):#Time shift
-		if circular_ambiguity:
+	for i in range(0,N-1):
+		#tau = K/fs
+		K = int(i*sample_num/(N-1))
+		
+		if circular_ambiguity:#time delay
 			Rxx_k = np.multiply(S_0,np.roll(S_conj,K)); #shift and element-wise multiply
 		else:
-			Rxx_k = np.multiply(S_0,right_shift(S_conj,K));	
-			
-		for L in range(0,M):#Frequency shift
-			if(L == 0):
-				ambiguity[K,M] = np.sum(Rxx_k)									#No frequency shift, L=0 slice is the autocorrelation of S_0
-			else:
-				ambiguity[K,M-L] = np.vdot(np.power(W_N,-L),Rxx_k)				#negative frequency shift
-				ambiguity[K,M+L] = np.vdot(np.power(W_N,L),Rxx_k)				#positive frequency shift
-				
+			Rxx_k = np.multiply(S_0,right_shift(S_conj,K));		
+		
+		for L in range(0,M-1):#doppler shift
+			f = -fs/2+L*fs/(M-1)#convert to continuous frequency
+			kernel = np.exp(2j*math.pi*f*t)#Create frequency shift kernel
+			ambiguity[K,L] = np.vdot(Rxx_k,kernel)/fs #integrate over time basis
 				
 	#ambiguity shift
-	ambiguity1 = np.zeros((N,N),dtype=np.complex_);
+
+	ambiguity1 = np.zeros((N,M),dtype=np.complex_);
 	
-	ambiguity1[0:math.floor(N/2),:] = ambiguity[math.ceil(N/2):N,:];
-	ambiguity1[math.ceil(N/2):N,:] = ambiguity[0:math.floor(N/2),:];
+	ambiguity1[0:int(N/2)-1,:] = ambiguity[int(N/2):N-1,:];
+	ambiguity1[int(N/2):N-1,:] = ambiguity[0:int(N/2)-1,:];
 	
 	ambiguity = np.swapaxes(ambiguity1,0,1)#flip axis
 	
 	if(normalize):
 		ambiguity = ambiguity/np.amax(ambiguity)
-	
+
 	return ambiguity
+#Computes the ambiguity function for a sequence.
+#The delay and doppler axis have as many increments as the input waveform. Output is (N,N)
+#This code utilizes np.ifft to perform part of the calculation.
 
 def ambiguity_function2(waveform,circular_ambiguity=True,normalize=True):
 	N = np.size(waveform)
@@ -106,7 +125,8 @@ def ambiguity_function2(waveform,circular_ambiguity=True,normalize=True):
 		return ambiguity[1:,1:]
 	else:
 		return ambiguity
-	
+
+
 #Shift with no roll
 def right_shift(sequence,shift):
 	s = np.roll(sequence,shift)	#roll
