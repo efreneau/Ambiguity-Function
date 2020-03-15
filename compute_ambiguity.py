@@ -30,6 +30,8 @@ def compute_ambiguity(pulse,N,M,fs,title,renderer='notebook',colorscale = px.col
                         zaxis_title='Ambiguity'))
 
     fig.show(renderer=renderer,width=fig_size, height=fig_size)
+    
+    return z
 
 def compute_ambiguity2(pulse,title,renderer='notebook',colorscale = px.colors.sequential.Plasma, fig_size = 800):#browser' 
     #px.colors.sequential.Plasma
@@ -54,3 +56,4 @@ def compute_ambiguity2(pulse,title,renderer='notebook',colorscale = px.colors.se
                         zaxis_title='Ambiguity'))
 
     fig.show(renderer=renderer,width=fig_size, height=fig_size)
+    return z
